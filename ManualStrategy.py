@@ -28,14 +28,11 @@ def getmacd(context, data):
 
 def initialize(context):
     context.stock = sid(23709)
-    context.qty = 10000
+    context.qty = 1000 #Shares to buy or sell
     context.stddev_limit = 1.75
-    context.exits =[]
-    context.enters = []
-    context.exits.append(False)
-    context.enters.append(False)
-    context.macd_hist = []
-    context.macd_hist.append(0)
+    context.exits =[False]
+    context.enters = [False]
+    context.macd_hist = [0]
     schedule_function(order_handling, date_rules.every_day())
 
 def order_handling(context, data):
@@ -54,45 +51,38 @@ def order_handling(context, data):
 
 
     # At top of bands?
-    if current_price > upper_bb and context.exits[-1] == False:
+    if current_price >= upper_bb and context.exits[-1] == False: #Just reached upperband, wait until it comes back through to sell
         context.exits.append(True)
-        context.macd_hist.append(curr_macd)
-    elif current_price < upper_bb and context.exits[-1]: #On the way back from upperband, close
+    elif current_price <= upper_bb and context.exits[-1]: #On the way back from upperband, close
         context.exits.append(False)
-        # Are we long or neutral?
-        print("sold bb")
-        if context.portfolio.positions[context.stock].amount >= 0:
+        if context.portfolio.positions[context.stock].amount >= 0: #If we own stock, close out
             # Close our long position if we have one
-            close_position(context, data)
-            order(context.stock, -context.qty)
-        context.macd_hist.append(curr_macd)
+            close_position(context, data) #Sell what we have
+            order(context.stock, -context.qty)  #Short a 1000
     # At bottom of bands?
-    elif current_price < lower_bb and context.enters[-1] == False :
+    elif current_price <= lower_bb and context.enters[-1] == False :
         context.enters.append(True)
-        context.macd_hist.append(curr_macd)
         # Are we short or neutral?
-    elif current_price > lower_bb and context.enters[-1]:
+    elif current_price >= lower_bb and context.enters[-1]:
         context.enters.append(False)
         print("bought bb")
         if context.portfolio.positions[context.stock].amount <= 0:
             # Close our short position if we have one
             close_position(context, data)
-            order(context.stock, context.qty)
-        context.macd_hist.append(curr_macd)
-    elif curr_macd > 0 and context.macd_hist[-1] < 0 : #go long
+            order(context.stock, context.qty) #Buy more
+    if curr_macd > 0 and context.macd_hist[-1] < 0 : #go in because macd crossover from negative to positive
         print("bought macd")
         if context.portfolio.positions[context.stock].amount <= 0:
             # Close our short position if we have one
             close_position(context, data)
             order(context.stock, context.qty)
-        context.macd_hist.append(curr_macd)
-    elif curr_macd <0 and context.macd_hist[-1] > 0: #go short
+    elif curr_macd < 0 and context.macd_hist[-1] > 0: #go short because macd crossover from positive to negative
         print("sold macd")
         if context.portfolio.positions[context.stock].amount >= 0:
             # Close our long position if we have one
-            close_position(context, data)
-            order(context.stock, -context.qty)
-        context.macd_hist.append(curr_macd)
+            close_position(context, data) #Sell what we have
+            order(context.stock, -context.qty) #Short
+
 
     context.macd_hist.append(curr_macd)
     return
